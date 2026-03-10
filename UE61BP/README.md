@@ -1,4 +1,4 @@
-# Unreal Engine 6.1 Blueprint 학습 정리
+# Unreal Engine Blueprint 학습 정리
 
 > 언리얼 엔진 Blueprint 학습 내용을 날짜별로 정리합니다.
 
