@@ -84,4 +84,4 @@ graph TD
 
 ---
 
-*학습 환경: Unreal Engine 6.1 | Blueprint*
+*학습 환경: Unreal Engine | Blueprint*
