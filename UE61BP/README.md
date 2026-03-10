@@ -9,14 +9,24 @@
 ### 클래스 계층도
 
 ```
-Object
-├── Actor                  + 레벨에 배치
-│   ├── Controller         + 폰 제어
-│   │   └── PlayerController   + 플레이어 입력
-│   └── Pawn               + 컨트롤러 입력
-│       └── Character      + 물리적 움직임
-└── ActorComponent         + 액터에서 역할 수행
-    └── SceneComponent     + 트랜스폼 보유
+graph TD
+    A[Object]
+    A1[Actor<br>+ 레벨에 배치]
+    A11[Controller<br>+ 폰 제어]
+    A111[PlayerController<br>+ 플레이어 입력]
+    A12[Pawn<br>+ 컨트롤러 입력]
+    A121[Character<br>+ 물리적 움직임]
+    A2[ActorComponent<br>+ 액터에서 역할 수행]
+    A21[SceneComponent<br>+ 트랜스폼 보유]
+
+    A --> A1
+    A1 --> A11
+    A11 --> A111
+    A1 --> A12
+    A12 --> A121
+    A --> A2
+    A2 --> A21
+
 ```
 
 ### 클래스 역할 정리표
