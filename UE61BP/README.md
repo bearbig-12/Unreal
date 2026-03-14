@@ -84,4 +84,112 @@ graph TD
 
 ---
 
+## 2026-03-12 - 캐릭터 기본 조작 및 카메라 시야 조작 구현
+
+### 구현 내용
+
+Enhanced Input System을 활용하여 캐릭터 이동과 마우스 시야 조작을 구현했다.
+
+---
+
+### 파일 구성
+
+| 파일 | 역할 |
+|------|------|
+| `BP_GameMode` | 기본 게임 모드 설정 |
+| `BP_PlayerController` | 입력 처리 및 캐릭터 조작 로직 |
+| `BP_Character` | 캐릭터 (SpringArm + Camera 포함) |
+| `IMC_Default` | Input Mapping Context (키-액션 매핑) |
+| `IA_Move` | 이동 Input Action (Axis2D) |
+| `IA_Look` | 시야 Input Action (Axis2D) |
+
+---
+
+### Enhanced Input 구조
+
+```
+마우스 이동 / 키 입력
+    ↓
+IMC_Default (키 → 액션 매핑)
+    ↓
+IA_Move / IA_Look (액션 정의)
+    ↓
+BP_PlayerController (BeginPlay에서 IMC 등록 + 액션 바인딩)
+    ↓
+Add Movement Input / Add Controller Yaw·Pitch Input
+```
+
+---
+
+### BP_PlayerController - BeginPlay 설정
+
+- `Get Enhanced Input Local Player Subsystem` → `Add Mapping Context (IMC_Default, Priority 0)`
+- Enhanced Input을 사용하려면 BeginPlay에서 반드시 IMC를 등록해야 함
+
+---
+
+### IA_Move 바인딩
+
+| 키 | Modifier | 역할 |
+|----|----------|------|
+| W | 없음 | 전진 (X+) |
+| S | Negate | 후진 (X-) |
+| D | Swizzle (YXZ) | 우이동 (Y+) |
+| A | Swizzle (YXZ) + Negate | 좌이동 (Y-) |
+
+- `EnhancedInputAction IA_Move` → Triggered → `Add Movement Input` (Target: Get Controlled Pawn)
+
+---
+
+### IA_Look 바인딩
+
+- `EnhancedInputAction IA_Look` → Triggered
+  - `Action Value X` → `Add Controller Yaw Input`
+  - `Action Value Y` → `Add Controller Pitch Input`
+  - Target: `Get Controlled Pawn`
+
+**IMC_Default 매핑:** `Mouse XY 2D-Axis` → `IA_Look`
+
+**IA_Look Modifier 설정:**
+- Negate: Y만 체크 ✅ (X 체크 해제 - 좌우 반전 방지)
+- Y축 Negate는 마우스 위아래 방향 보정을 위해 필요
+
+---
+
+### BP_Character - 카메라 설정
+
+```
+CapsuleComponent
+└── Mesh (SkeletalMesh)
+└── SpringArm
+    └── Camera
+```
+
+**SpringArm 핵심 설정:**
+- `Use Pawn Control Rotation` = **True** ← 컨트롤러 회전을 카메라가 따라감
+
+**Camera 설정:**
+- `Use Pawn Control Rotation` = **False** (SpringArm이 이미 처리)
+
+---
+
+### 트러블슈팅
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| 마우스 이동해도 카메라 회전 안 됨 | IMC_Default에서 IA_Look이 `Left Mouse Button`에 매핑되어 있었음 | `Mouse XY 2D-Axis`로 변경 |
+| 카메라가 여전히 안 돌아감 | SpringArm `Use Pawn Control Rotation` 미설정 | True로 변경 |
+| 좌우 시야가 반대로 조작됨 | IA_Look Negate 모디파이어가 X축까지 반전 | Negate에서 X 체크 해제 |
+
+---
+
+### Blueprint 실습 포인트 업데이트
+
+- [x] `Character` 블루프린트 생성 후 `CharacterMovementComponent` 설정 탐색
+- [x] `PlayerController`에서 입력 바인딩 (Enhanced Input System)
+- [ ] `ActorComponent` 블루프린트로 재사용 가능한 체력 시스템 만들기
+- [ ] `SceneComponent`를 이용한 소켓 부착 실습
+
+---
+
 *학습 환경: Unreal Engine | Blueprint*
