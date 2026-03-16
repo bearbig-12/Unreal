@@ -168,6 +168,29 @@ Camera 회전
 
 ---
 
+#### Animation Blueprint (ABP)
+
+캐릭터의 애니메이션 로직을 담당하는 블루프린트. 일반 BP와 달리 **AnimGraph**와 **EventGraph** 두 가지를 가진다.
+
+| 그래프 | 역할 |
+|--------|------|
+| **EventGraph** | 변수 업데이트 (속도, 방향, 점프 여부 등) |
+| **AnimGraph** | 상태 머신(State Machine)으로 애니메이션 전환 로직 |
+
+```
+캐릭터 이동 → EventGraph에서 Speed 변수 업데이트
+    ↓
+AnimGraph State Machine
+    Idle ──(Speed > 0)──→ Walk/Run
+    Walk ──(Speed == 0)──→ Idle
+    Any ──(Jump)──→ Jump
+```
+
+- `SKM_Mannequin`(스켈레탈 메시)과 연결하여 뼈대 기반 애니메이션 재생
+- BP_Character의 Mesh 컴포넌트에 `Anim Class`로 ABP_Character 지정
+
+---
+
 #### SpringArm (카메라 붐)
 
 캐릭터와 카메라 사이의 거리를 유지하고, 벽에 가까워지면 자동으로 카메라를 당겨주는 컴포넌트.
@@ -183,14 +206,44 @@ Camera 회전
 
 ### 파일 구성
 
+**Blueprint**
+
 | 파일 | 역할 |
 |------|------|
 | `BP_GameMode` | 기본 게임 모드 설정 |
 | `BP_PlayerController` | 입력 처리 및 캐릭터 조작 로직 |
 | `BP_Character` | 캐릭터 (SpringArm + Camera 포함) |
+| `ABP_Character` | 캐릭터 애니메이션 블루프린트 |
+| `BP_Tutorial` | 튜토리얼용 블루프린트 |
+
+**Enhanced Input**
+
+| 파일 | 역할 |
+|------|------|
 | `IMC_Default` | Input Mapping Context (키-액션 매핑) |
 | `IA_Move` | 이동 Input Action (Axis2D) |
 | `IA_Look` | 시야 Input Action (Axis2D) |
+| `IA_Dodge` | 회피 Input Action |
+
+**메시 / 텍스처**
+
+| 파일 | 역할 |
+|------|------|
+| `SKM_Mannequin` | 캐릭터 스켈레탈 메시 |
+| `SKM_Sword` | 검 스켈레탈 메시 |
+| `T_CrossHair` | HUD 크로스헤어 텍스처 |
+
+**파티클 (FX Variety Pack)**
+
+| 파일 | 역할 |
+|------|------|
+| `CPS_Explosion` | 폭발 이펙트 |
+| `CPS_FireAura` | 화염 오라 이펙트 |
+| `CPS_FireBall` | 화염구 이펙트 |
+| `CPS_FireStorm` | 화염 폭풍 이펙트 |
+| `CPS_Lightning` | 번개 이펙트 |
+| `CPS_LightningTrail` | 번개 궤적 이펙트 |
+| `CPS_Spark` | 스파크 이펙트 |
 
 ---
 
