@@ -92,6 +92,95 @@ Enhanced Input System을 활용하여 캐릭터 이동과 마우스 시야 조�
 
 ---
 
+### 개념 정리
+
+#### Enhanced Input System 이란?
+
+기존 레거시 Input System(Project Settings → Input)을 대체하는 UE5 표준 입력 시스템이다.
+
+| 구성 요소 | 역할 |
+|-----------|------|
+| **Input Action (IA)** | 논리적 입력 단위 정의 (이동, 시야, 점프 등) |
+| **Input Mapping Context (IMC)** | 물리 키/버튼을 IA에 매핑. 런타임에 교체 가능 |
+| **Modifier** | 입력값을 가공 (반전, 축 교환, 감도 등) |
+| **Trigger** | 언제 액션이 발동되는지 조건 설정 |
+
+**장점:** IMC를 런타임에 교체할 수 있어서 UI 모드, 전투 모드, 탈것 탑승 등 상황별 입력 전환이 쉽다.
+
+---
+
+#### Input Action Value Type
+
+| 타입 | 핀 | 사용 예 |
+|------|----|---------|
+| `Bool` | 단일 bool | 점프, 공격 (눌림/뗌) |
+| `Axis1D (float)` | 단일 float | 트리거 버튼, 마우스 휠 |
+| `Axis2D (Vector2D)` | X, Y | 마우스 이동, 스틱 |
+| `Axis3D (Vector)` | X, Y, Z | 6DOF 컨트롤러 |
+
+---
+
+#### Modifier 종류
+
+| Modifier | 동작 | 주요 사용처 |
+|----------|------|------------|
+| **Negate** | 값을 반전 (-1 곱셈) | S키(후진), 마우스 Y축 보정 |
+| **Swizzle Input Axis Values** | 축 순서 교환 (YXZ 등) | A/D키 → Y축으로 이동시킬 때 |
+| **Scale** | 값에 스칼라 곱 | 감도 조절 |
+| **Dead Zone** | 일정 범위 내 입력 무시 | 스틱 드리프트 방지 |
+
+> **왜 D키에 Swizzle이 필요한가?**
+> 키보드 키는 기본적으로 `Axis1D`(X축)로 값이 들어온다.
+> 좌우 이동은 Y축이 필요하므로 Swizzle(YXZ)로 X→Y로 바꿔줘야 한다.
+
+---
+
+#### Trigger 종류
+
+| Trigger | 발동 조건 |
+|---------|-----------|
+| **Triggered** (기본) | 입력값이 임계값 이상인 동안 매 프레임 |
+| **Down** | 입력이 눌린 상태인 동안 |
+| **Pressed** | 눌리는 순간 1회 |
+| **Released** | 떼는 순간 1회 |
+| **Hold** | 일정 시간 이상 누르고 있을 때 |
+
+---
+
+#### Controller Rotation vs Pawn Rotation
+
+언리얼에서 회전은 **Controller**가 들고 있는 `ControlRotation`이 기준이다.
+
+```
+마우스 이동
+    ↓
+Add Controller Yaw/Pitch Input (Pawn 함수 → 내부적으로 Controller에 전달)
+    ↓
+PlayerController.ControlRotation 변경
+    ↓
+SpringArm (Use Pawn Control Rotation = true) → ControlRotation 따라감
+    ↓
+Camera 회전
+```
+
+- `Add Controller Yaw Input` / `Add Controller Pitch Input` : Pawn의 함수이지만 실제로는 Controller의 회전값을 바꿈
+- Character의 **Use Controller Rotation Yaw**를 끄면 몸통은 고정되고 카메라(SpringArm)만 회전
+
+---
+
+#### SpringArm (카메라 붐)
+
+캐릭터와 카메라 사이의 거리를 유지하고, 벽에 가까워지면 자동으로 카메라를 당겨주는 컴포넌트.
+
+| 주요 설정 | 설명 |
+|-----------|------|
+| `Target Arm Length` | 카메라와 캐릭터 사이 거리 |
+| `Use Pawn Control Rotation` | Controller 회전을 따라 SpringArm 회전 (**카메라 회전의 핵심**) |
+| `Do Collision Test` | 벽 충돌 시 카메라 자동 당김 |
+| `Enable Camera Lag` | 카메라가 부드럽게 따라오는 딜레이 효과 |
+
+---
+
 ### 파일 구성
 
 | 파일 | 역할 |
