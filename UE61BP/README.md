@@ -334,4 +334,165 @@ CapsuleComponent
 
 ---
 
+## Blueprint 핵심 개념 - 몽타주 & 인터페이스
+
+---
+
+### Animation Montage (애니메이션 몽타주)
+
+#### 몽타주란?
+
+여러 애니메이션 클립을 **하나의 에셋으로 편집·조합**하여 블루프린트에서 코드로 직접 재생할 수 있는 시스템.
+
+State Machine이 *상태 기반 반복 애니메이션*을 담당한다면,
+Montage는 **이벤트성 1회 애니메이션** (공격, 피격, 구르기, 스킬 등)을 담당한다.
+
+```
+State Machine   →  Idle, Walk, Run (반복/전환)
+Montage         →  Attack, Hit, Dodge (이벤트성 1회)
+```
+
+---
+
+#### 몽타주 구성 요소
+
+| 요소 | 설명 |
+|------|------|
+| **Section** | 몽타주를 나누는 구간 (예: Start / Loop / End) |
+| **Slot** | ABP의 AnimGraph에서 몽타주가 삽입될 위치 (기본: `DefaultSlot`) |
+| **Notify** | 특정 프레임에 이벤트 발생 (예: 발소리, 히트 판정 시작) |
+| **Blend In/Out** | 몽타주 시작·끝의 블렌딩 시간 |
+
+---
+
+#### 몽타주 재생 흐름
+
+```
+BP_Character (블루프린트)
+    ↓  Play Anim Montage (몽타주 에셋 지정)
+ABP_Character AnimGraph
+    ↓  Slot 노드 (DefaultSlot) 에서 몽타주 오버레이
+캐릭터 메시에 애니메이션 재생
+```
+
+> ABP의 AnimGraph에 **Slot 노드**가 없으면 몽타주를 호출해도 재생이 안 된다.
+
+---
+
+#### 주요 Blueprint 노드
+
+| 노드 | 역할 |
+|------|------|
+| `Play Anim Montage` | 몽타주 재생 시작 |
+| `Stop Anim Montage` | 몽타주 강제 정지 |
+| `Montage Is Playing` | 현재 재생 중인지 확인 |
+| `Montage Jump To Section` | 특정 Section으로 이동 |
+| `On Montage Ended` | 몽타주 종료 시 이벤트 (콤보 처리 등) |
+
+---
+
+#### Anim Notify 활용 예
+
+```
+공격 몽타주
+  Frame 0  ─── [Notify: AttackStart] → 히트 판정 콜라이더 활성화
+  Frame 15 ─── [Notify: AttackEnd]   → 히트 판정 콜라이더 비활성화
+  Frame 30 ─── [Notify: FootStep]    → 발소리 사운드 재생
+```
+
+몽타주의 특정 프레임에 Notify를 추가하면 ABP의 EventGraph에서 해당 이벤트를 받아 처리할 수 있다.
+
+---
+
+### Blueprint Interface (블루프린트 인터페이스)
+
+#### 인터페이스란?
+
+**함수 시그니처만 정의**하고 구현은 각 블루프린트에서 하는 계약 시스템.
+서로 다른 클래스(캐릭터, AI, 오브젝트 등)를 **동일한 방식으로 호출**할 수 있게 해준다.
+
+---
+
+#### 인터페이스가 필요한 이유
+
+```
+// 인터페이스 없이 데미지 처리
+if (HitActor is BP_Character)   → Cast To BP_Character → Take Damage
+if (HitActor is BP_Enemy)       → Cast To BP_Enemy    → Take Damage
+if (HitActor is BP_Boss)        → Cast To BP_Boss     → Take Damage
+```
+
+캐스팅을 남발하면 의존성이 높아지고 유지보수가 어려워진다.
+
+```
+// 인터페이스 사용
+HitActor → BPI_Damageable 인터페이스의 Take Damage 호출
+→ 해당 액터가 인터페이스를 구현했으면 각자의 로직으로 실행
+→ 구현 안 했으면 무시
+```
+
+---
+
+#### 사용 방법
+
+**1. 인터페이스 에셋 생성**
+- Content Browser → 우클릭 → Blueprints → **Blueprint Interface** 생성
+- 함수 추가 (예: `TakeDamage`, `Interact`, `GetHealth`)
+- 함수에 입력/출력 파라미터만 정의 (구현 없음)
+
+**2. 블루프린트에서 구현**
+- BP_Character, BP_Enemy 등에서 Class Settings → **Interfaces** → 인터페이스 추가
+- 인터페이스 함수가 자동으로 이벤트 노드로 생성됨 → 내부 로직 구현
+
+**3. 다른 블루프린트에서 호출**
+```
+HitActor → Does Implement Interface? (선택적 체크)
+         → Interface 함수 호출 (Message 방식 - 안전하게 호출)
+```
+
+---
+
+#### Cast vs Interface 비교
+
+| 항목 | Cast To | Blueprint Interface |
+|------|---------|---------------------|
+| **사용법** | 특정 클래스로 직접 캐스팅 | 인터페이스 함수 호출 |
+| **의존성** | 호출자가 피호출자 클래스를 알아야 함 | 클래스 몰라도 호출 가능 |
+| **실패 처리** | Cast Failed 핀으로 처리 | 구현 안 된 액터는 자동 무시 |
+| **적합한 상황** | 특정 클래스의 고유 기능 접근 | 여러 다른 클래스에 공통 기능 호출 |
+| **예시** | 플레이어 한정 기능 (인벤토리 열기) | 데미지, 상호작용, 사망 등 |
+
+---
+
+#### 실전 인터페이스 예시
+
+```
+BPI_Interactable (인터페이스)
+├── Interact(Instigator: Pawn)    ← 함수 시그니처만
+
+BP_Door    → Interact 구현 : 문 열기
+BP_Chest   → Interact 구현 : 아이템 드롭
+BP_NPC     → Interact 구현 : 대화 시작
+
+플레이어가 E키 누르면
+→ 앞의 액터에 Interact 메시지 전송
+→ 각 오브젝트가 자기 방식으로 반응
+```
+
+---
+
+### Blueprint 종류 정리
+
+| 종류 | 설명 | 주요 사용처 |
+|------|------|------------|
+| **Blueprint Class** | 일반 블루프린트. 컴포넌트+로직 구성 | 캐릭터, 오브젝트, 게임모드 |
+| **Animation Blueprint (ABP)** | 애니메이션 로직 전용. AnimGraph 포함 | 캐릭터 애니메이션 |
+| **Blueprint Interface (BPI)** | 함수 시그니처만 정의. 구현은 각 BP에서 | 데미지, 상호작용 등 공통 호출 |
+| **Blueprint Function Library** | 인스턴스 없이 어디서나 호출 가능한 함수 모음 | 수학 유틸, 공통 헬퍼 함수 |
+| **Blueprint Macro Library** | 재사용 가능한 매크로 모음 | 반복 로직 묶기 |
+| **Structure (Struct)** | 여러 변수를 묶은 데이터 구조 | 아이템 정보, 스탯 데이터 |
+| **Enumeration (Enum)** | 이름 붙인 상수 목록 | 캐릭터 상태, 무기 타입 |
+
+---
+
 *학습 환경: Unreal Engine | Blueprint*
