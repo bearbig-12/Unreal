@@ -495,4 +495,131 @@ BP_NPC     → Interact 구현 : 대화 시작
 
 ---
 
+## 메시(Mesh) 개념 정리
+
+---
+
+### Static Mesh vs Skeletal Mesh
+
+| 항목 | Static Mesh | Skeletal Mesh |
+|------|-------------|---------------|
+| **뼈대(Skeleton)** | 없음 | 있음 (Bone 계층 구조) |
+| **변형** | 불가 (고정된 형태) | 본 움직임에 따라 버텍스 변형 |
+| **애니메이션** | 불가 | ABP / Montage로 재생 |
+| **용도** | 바위, 건물, 소품, 무기(단순) | 캐릭터, 생물, 변형이 필요한 오브젝트 |
+| **컴포넌트** | `StaticMeshComponent` | `SkeletalMeshComponent` |
+| **성능 비용** | 낮음 | 높음 (스키닝 연산 필요) |
+
+---
+
+#### Static Mesh
+
+뼈대가 없는 **고정 형태의 3D 모델**.
+움직임이 필요없는 배경 오브젝트에 적합하다.
+
+```
+바위, 나무, 건물, 상자, 총기(단순 부착용)
+→ 변형 없이 위치/회전/스케일만 변경
+```
+
+- 런타임 변형 불가 → GPU 인스턴싱 최적화에 유리
+- `StaticMeshComponent`로 Actor에 부착
+
+---
+
+#### Skeletal Mesh
+
+**Skeleton(뼈대 계층)** 을 포함한 3D 모델.
+본(Bone)의 움직임에 따라 연결된 버텍스(Vertex)가 같이 변형된다.
+
+```
+SKM_Mannequin
+├── Skeleton (뼈대 계층)
+│   ├── root
+│   │   ├── spine_01
+│   │   │   ├── spine_02
+│   │   │   │   ├── clavicle_l → upperarm_l → lowerarm_l → hand_l
+│   │   │   │   └── clavicle_r → upperarm_r → lowerarm_r → hand_r
+│   │   │   └── neck_01 → head
+│   │   ├── thigh_l → calf_l → foot_l
+│   │   └── thigh_r → calf_r → foot_r
+└── Mesh (버텍스 데이터 + 스킨 웨이트)
+```
+
+---
+
+### 스킨 웨이트 (Skin Weight / 본 영향도)
+
+#### 스킨 웨이트란?
+
+Skeletal Mesh의 각 **버텍스(Vertex)** 가 어느 **본(Bone)** 에 얼마나 영향을 받는지를 나타내는 값.
+0.0 ~ 1.0 사이의 값이며, 한 버텍스에 영향을 주는 모든 본의 웨이트 합은 **1.0**.
+
+```
+팔꿈치 근처 버텍스 예시:
+  upperarm_l  →  웨이트 0.4  (40% 영향)
+  lowerarm_l  →  웨이트 0.6  (60% 영향)
+  합계                1.0
+```
+
+---
+
+#### 왜 웨이트가 필요한가?
+
+웨이트 없이 본 하나에만 100% 귀속되면 **관절 부위가 딱딱하게 꺾인다**.
+인접 본들에 부드럽게 분산시켜야 자연스러운 피부/옷감 변형이 생긴다.
+
+```
+웨이트 없음 (0 or 1만 사용)     웨이트 있음 (블렌딩)
+팔꿈치를 굽혔을 때:              팔꿈치를 굽혔을 때:
+  ┌─────────────┐                  ┌───────────╮
+  │             │                  │            ╰─
+  └─────────────┘                  └────────────╯
+  (각진 끊김 현상)                  (부드러운 변형)
+```
+
+---
+
+#### 언리얼에서 스킨 웨이트 관련 설정
+
+| 설정 | 위치 | 설명 |
+|------|------|------|
+| `Max Bone Influences` | Skeletal Mesh 임포트 | 버텍스당 영향을 주는 최대 본 수 (보통 4~8) |
+| `Use Full Precision UVs` | Skeletal Mesh Details | 고정밀 UV 사용 여부 |
+| Physics Asset | Skeleton 연결 | 물리 시뮬레이션 시 본별 콜리전 설정 |
+
+> **Max Bone Influences** 를 높이면 변형이 부드러워지지만 GPU 연산 비용이 늘어난다.
+> 모바일은 보통 4, PC/콘솔은 8까지 사용.
+
+---
+
+#### 소켓 (Socket)
+
+본에 **가상의 부착점**을 만들어 무기, 이펙트, 카메라 등을 정확한 위치에 붙일 수 있다.
+
+```
+hand_r 본에 소켓 "WeaponSocket" 생성
+    ↓
+SKM_Sword를 WeaponSocket에 Attach
+    ↓
+손이 움직이면 검도 같이 따라옴
+```
+
+블루프린트에서: `Attach Component To Component` 또는 `Attach Actor To Component`
+소켓 이름을 지정하면 해당 본의 트랜스폼을 자동으로 따라간다.
+
+---
+
+### 이번 프로젝트 메시 구성
+
+| 파일 | 종류 | 역할 |
+|------|------|------|
+| `SKM_Mannequin` | Skeletal Mesh | 플레이어 캐릭터 본체 |
+| `SKM_Sword` | Skeletal Mesh | 검 (소켓으로 손에 부착 예정) |
+
+> `SKM_Sword`가 Skeletal Mesh인 이유: 검날 휘어짐, 특수 애니메이션 등 변형이 필요할 수 있어서.
+> 단순 부착용이라면 Static Mesh로 교체해도 성능상 유리하다.
+
+---
+
 *학습 환경: Unreal Engine | Blueprint*
