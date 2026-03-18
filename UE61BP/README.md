@@ -334,6 +334,85 @@ CapsuleComponent
 
 ---
 
+## State Machine - State Alias (상태 별칭)
+
+---
+
+### State Alias란?
+
+State Machine 안에서 **하나 이상의 State를 대표하는 가상 노드**.
+여러 State에서 동일한 전환 조건을 공유할 때, 전환 선(Transition)을 하나로 묶어 정리할 수 있다.
+
+---
+
+### Alias가 필요한 이유
+
+예: "어떤 상태에서든 피격(Hit) 상태로 전환하고 싶다"
+
+**Alias 없이:**
+```
+Idle   ──(피격)──→ Hit
+Walk   ──(피격)──→ Hit
+Run    ──(피격)──→ Hit
+Jump   ──(피격)──→ Hit
+Attack ──(피격)──→ Hit
+```
+→ 상태가 늘어날수록 연결선이 폭발적으로 증가, State Machine이 복잡해짐
+
+**Alias 사용:**
+```
+[Alias: AllStates]
+ ├── Idle
+ ├── Walk
+ ├── Run
+ ├── Jump
+ └── Attack
+       ↓ (피격)
+      Hit
+```
+→ 전환 규칙 1개로 모든 상태에서 Hit으로 전환 가능
+
+---
+
+### 사용 방법
+
+1. State Machine 내 빈 공간 **우클릭 → Add State Alias**
+2. Alias 노드 선택 → Details 패널에서 **대표할 State들 체크**
+3. Alias 노드에서 목표 State로 **Transition 연결**
+4. Transition 조건 1개만 설정하면 선택된 모든 State에 적용됨
+
+---
+
+### Any State와의 차이
+
+| 항목 | State Alias | Any State |
+|------|-------------|-----------|
+| **적용 대상** | 지정한 State만 | State Machine 내 모든 State |
+| **제어 범위** | 세밀하게 선택 가능 | 전체 일괄 적용 |
+| **사용 예** | 특정 상태 그룹에서만 전환 | 완전 전역 전환 (피격, 사망 등) |
+
+> **Any State**: State Machine에 기본 내장된 노드. 모든 State에서 조건이 충족되면 전환됨.
+> **State Alias**: UE5에서 추가. 원하는 State만 묶어서 더 세밀하게 전환 제어 가능.
+
+---
+
+### 실전 활용 예시
+
+```
+[Alias: GroundStates]        [Alias: AirStates]
+ ├── Idle                     ├── Jump
+ ├── Walk                     └── Fall
+ └── Run
+     ↓ (점프 입력)                ↓ (착지)
+    Jump                        Idle/Walk/Run
+```
+
+- `GroundStates` Alias → Jump 전환: 지상 상태에서만 점프 허용
+- `AirStates` Alias → 착지 전환: 공중 상태에서만 착지 처리
+- 새 지상 State(달리기, 구르기 등) 추가 시 Alias에 체크만 하면 자동 적용
+
+---
+
 ## Blueprint 핵심 개념 - 몽타주 & 인터페이스
 
 ---
