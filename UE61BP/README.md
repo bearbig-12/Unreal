@@ -334,6 +334,64 @@ CapsuleComponent
 
 ---
 
+## State Machine 노드 종류
+
+---
+
+### Conduit (컨듀잇)
+
+#### 컨듀잇이란?
+
+여러 State의 **공통 전환 조건을 하나로 묶는 중간 게이트 노드**.
+Transition Rule처럼 조건을 가지지만, **다수 → 다수** 연결이 가능하다.
+
+```
+State A ──┐
+State B ──┼──→ [Conduit: 조건] ──→ State X
+State C ──┘                    └──→ State Y
+```
+
+---
+
+#### Transition vs Conduit 차이
+
+| 항목 | Transition Rule | Conduit |
+|------|----------------|---------|
+| **연결 구조** | 1:1 (State → State) | 다:다 (여러 State → 여러 State) |
+| **조건 위치** | 전환선 자체에 설정 | 독립된 노드로 존재 |
+| **재사용** | 불가 (각 선마다 따로) | 가능 (여러 전환이 하나의 컨듀잇 공유) |
+| **시각적 표현** | 화살표 위 작은 아이콘 | 별도 노드 (둥근 사각형) |
+
+---
+
+#### 언제 쓰나?
+
+같은 조건으로 여러 State에서 진입하고, 그 이후 다시 여러 State로 분기할 때.
+
+```
+// 예: 피격 판정
+Idle  ──┐
+Walk  ──┼──→ [Conduit: Is Hit = true] ──→ Hit_Front
+Run   ──┘                             └──→ Hit_Back
+```
+
+- 컨듀잇 조건: `Is Hit = true`
+- 이후 분기 조건: 피격 방향에 따라 Hit_Front / Hit_Back 선택
+- 새로운 지상 State 추가해도 컨듀잇 하나만 연결하면 됨
+
+---
+
+#### State Alias vs Conduit 차이
+
+| 항목 | State Alias | Conduit |
+|------|-------------|---------|
+| **역할** | 여러 State를 하나로 묶어 대표 | 전환 중간에 조건 게이트 역할 |
+| **자체 조건** | 없음 (전환선에 조건) | 있음 (컨듀잇 자체가 조건 보유) |
+| **분기** | 불가 (목적지 1개) | 가능 (여러 목적지로 분기) |
+| **주요 용도** | 전환 출발점 그룹화 | 전환 중간 필터 + 분기 |
+
+---
+
 ## State Machine - State Alias (상태 별칭)
 
 ---
