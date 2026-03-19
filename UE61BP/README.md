@@ -803,4 +803,167 @@ SKM_Sword를 WeaponSocket에 Attach
 
 ---
 
+## Blend Space (블렌드 스페이스)
+
+---
+
+### Blend Space란?
+
+**1개 또는 2개의 float 값**을 기준으로 여러 애니메이션을 **부드럽게 보간(Blend)** 하는 에셋.
+State Machine이 상태 간 전환을 담당한다면, Blend Space는 **하나의 상태 안에서 자연스러운 움직임 변화**를 담당한다.
+
+```
+예: 속도에 따라 Idle → Walk → Run 자동 보간
+  Speed 0     →  Idle 애니메이션 100%
+  Speed 150   →  Walk 애니메이션 100%
+  Speed 375   →  Walk 50% + Run 50% (보간)
+  Speed 600   →  Run 애니메이션 100%
+```
+
+---
+
+### Blend Space 종류
+
+| 종류 | 축 수 | 사용 예 |
+|------|-------|---------|
+| **Blend Space 1D** | 1개 (float) | Speed만으로 Idle/Walk/Run 전환 |
+| **Blend Space** | 2개 (float × float) | Speed + Direction으로 8방향 이동 블렌딩 |
+
+---
+
+### 생성 및 설정 방법
+
+1. Content Browser → 우클릭 → **Animation → Blend Space** (또는 Blend Space 1D)
+2. 에디터 하단 **Axis Settings** 설정:
+   - Horizontal Axis: `Speed` (0 ~ 600)
+   - Vertical Axis (2D만): `Direction` (-180 ~ 180)
+3. 애니메이션 클립을 그래프 위 원하는 위치에 **드래그앤드롭**
+4. 미리보기: Axis 슬라이더를 움직여 보간 확인
+
+---
+
+### ABP에서 사용하는 방법
+
+AnimGraph → State 안에서:
+
+```
+[Blend Space Player]
+  ├── Blend Space: BS_Locomotion 지정
+  ├── Speed 변수 → X 핀 연결
+  └── Direction 변수 → Y 핀 연결 (2D의 경우)
+        ↓
+  [Output Pose]
+```
+
+EventGraph에서 매 프레임 Speed / Direction 변수를 업데이트하면 Blend Space가 자동으로 보간해 재생한다.
+
+---
+
+### State Machine과 역할 분리
+
+```
+State Machine
+├── Idle State      → BS_Idle (Blend Space)
+├── Locomotion State → BS_Locomotion (Blend Space)  ← 속도에 따라 Walk/Run 자동 보간
+└── Jump State      → Jump 애니메이션 시퀀스
+```
+
+- State Machine: **어느 상태인가** 결정
+- Blend Space: **그 상태 안에서 어떻게 움직이는가** 결정
+
+---
+
+### Blend Space vs State Machine 비교
+
+| 항목 | State Machine | Blend Space |
+|------|--------------|-------------|
+| **전환 방식** | 조건 기반 (bool, 이벤트) | 파라미터 값 기반 (float) |
+| **용도** | 상태 간 전환 (Idle↔Jump) | 같은 상태 내 자연스러운 변화 |
+| **적합한 예** | 점프, 피격, 공격 | 이동 속도, 방향에 따른 이동 블렌딩 |
+
+---
+
+## Blueprint Macro (블루프린트 매크로)
+
+---
+
+### 매크로란?
+
+**노드 묶음을 하나의 재사용 가능한 노드로 압축**하는 기능.
+함수(Function)와 비슷하지만 **다수의 실행 핀(Exec Pin)** 을 가질 수 있다는 점이 다르다.
+
+```
+// 매크로 사용 전
+[Branch] → True → [Do Something A]
+         → False → [Do Something B]
+(같은 패턴을 여러 곳에 반복)
+
+// 매크로 사용 후
+[My Macro] → True Exec → ...
+           → False Exec → ...
+(한 번 정의하고 여러 곳에서 재사용)
+```
+
+---
+
+### 매크로 생성 방법
+
+1. My Blueprint 패널 → **Macros** 항목 → **+** 버튼 클릭
+2. 매크로 이름 지정 (예: `CheckAndBranch`)
+3. Details 패널에서 **Inputs / Outputs** 핀 추가:
+   - Input Exec 핀, Output Exec 핀 여러 개 추가 가능
+   - 일반 데이터 핀도 추가 가능
+4. 매크로 그래프에서 로직 작성
+5. 다른 그래프에서 일반 노드처럼 호출
+
+---
+
+### Function vs Macro 비교
+
+| 항목 | Function | Macro |
+|------|----------|-------|
+| **Exec 핀** | 입력 1개, 출력 1개 | 입력/출력 여러 개 가능 |
+| **로컬 변수** | 사용 가능 | 사용 불가 |
+| **Timeline 노드** | 사용 불가 | 사용 가능 |
+| **네트워크 복제** | 가능 (`Server`, `Client` 지정) | 불가 |
+| **재귀 호출** | 가능 | 불가 |
+| **디버깅** | 개별 함수로 추적 가능 | 호출부에 인라인 삽입됨 |
+| **적합한 용도** | 로직 모듈화, 복제 필요 | 여러 Exec 분기, 반복 패턴 |
+
+---
+
+### 매크로 활용 예시
+
+**예: 유효성 검사 매크로**
+```
+[Is Valid Check Macro]
+  Input:  Object (Object Reference)
+  Output: Valid Exec   → 유효할 때 실행
+          Invalid Exec → 무효일 때 실행
+
+사용:
+[Get Target] → [Is Valid Check] → Valid   → [Do Action]
+                                → Invalid → [Error Log]
+```
+
+Branch + IsValid 조합을 매번 만드는 대신 매크로 하나로 재사용.
+
+---
+
+### Macro Library (매크로 라이브러리)
+
+특정 Blueprint 안에 만든 매크로는 그 BP 안에서만 사용 가능하다.
+**여러 Blueprint에서 공유**하려면 **Blueprint Macro Library** 에셋을 만들어야 한다.
+
+```
+Content Browser → 우클릭 → Blueprints → Blueprint Macro Library
+```
+
+| 범위 | 방법 |
+|------|------|
+| 같은 BP 내에서만 | My Blueprint → Macros에서 생성 |
+| 프로젝트 전체 공유 | Blueprint Macro Library 에셋 생성 |
+
+---
+
 *학습 환경: Unreal Engine | Blueprint*
