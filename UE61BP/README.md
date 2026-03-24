@@ -204,6 +204,15 @@ AnimGraph State Machine
 
 ---
 
+### 프로젝트 설정 변경 (DefaultEngine.ini)
+
+| 항목 | 변경 내용 |
+|------|-----------|
+| `GlobalDefaultGameMode` | `/Game/BP_GameMode` → `/Game/Blueprints/BP_GameMode` (경로 정리) |
+| `EditorStartupMap` | `LV_Default` 추가 (에디터 실행 시 자동으로 해당 레벨 열림) |
+
+---
+
 ### 파일 구성
 
 **Blueprint**
@@ -963,6 +972,153 @@ Content Browser → 우클릭 → Blueprints → Blueprint Macro Library
 |------|------|
 | 같은 BP 내에서만 | My Blueprint → Macros에서 생성 |
 | 프로젝트 전체 공유 | Blueprint Macro Library 에셋 생성 |
+
+---
+
+## Pure Function (순수 함수)
+
+---
+
+### 순수 함수란?
+
+**실행 핀(Exec Pin)이 없고**, 입력값만 받아 출력값을 반환하는 함수.
+호출할 때마다 **외부 상태를 변경하지 않고** 동일한 입력이면 항상 동일한 결과를 반환한다.
+
+```
+// 일반 함수 (Exec 핀 있음)
+▶ [Get Health] ▶      ← 실행 흐름에 연결해야 호출됨
+
+// 순수 함수 (Exec 핀 없음)
+  [Get Health]         ← 값이 필요한 곳에 바로 연결
+       ↓
+    (float)
+```
+
+---
+
+### 일반 함수 vs 순수 함수
+
+| 항목 | 일반 함수 | 순수 함수 |
+|------|----------|----------|
+| **Exec 핀** | 있음 (실행 흐름 연결 필요) | 없음 |
+| **부작용** | 가능 (변수 변경, 이벤트 발생 등) | 없음 (읽기 전용) |
+| **호출 시점** | 실행 흐름이 도달했을 때 | 연결된 핀의 값이 필요할 때 자동 호출 |
+| **중복 호출** | 흐름상 1번 | 연결된 핀마다 각각 호출될 수 있음 |
+| **적합한 용도** | 상태 변경, 스폰, 출력 | 값 계산, 조회, 변환 |
+
+---
+
+### 순수 함수 만드는 법
+
+함수 생성 후 Details 패널에서:
+
+```
+Pure → 체크 ✅
+```
+
+또는 기존 함수 노드에서 우클릭 → **Convert to Pure Node**
+
+---
+
+### 주의사항
+
+순수 함수는 연결된 핀마다 **독립적으로 호출**된다.
+
+```
+[Get Random Value (Pure)] ─→ [Print A]
+                          └─→ [Print B]
+```
+
+위 경우 `Get Random Value`가 **두 번 호출**되어 A와 B가 서로 다른 값일 수 있다.
+같은 값을 여러 곳에 쓰려면 **로컬 변수에 저장 후 사용**해야 한다.
+
+```
+[Get Random Value] → [Set Local Var] → [Local Var (Pure)] ─→ [Print A]
+                                                           └─→ [Print B]
+```
+
+---
+
+### 순수 함수 활용 예시
+
+| 함수 | 설명 |
+|------|------|
+| `Get Actor Location` | 액터 위치 반환 (읽기 전용) |
+| `Get Health Percent` | HP / MaxHP 계산값 반환 |
+| `Is Enemy Nearby` | 범위 내 적 존재 여부 bool 반환 |
+| `Add (float)`, `Multiply` | 수학 연산 노드 (기본 Pure) |
+
+언리얼 내장 수학 노드 (`+`, `-`, `×`, `÷`) 는 모두 기본적으로 순수 함수다.
+
+---
+
+## Blueprint Function Library (함수 라이브러리)
+
+---
+
+### 함수 라이브러리란?
+
+**인스턴스 없이 어디서나 호출 가능한 정적 함수 모음** 에셋.
+특정 오브젝트에 종속되지 않고 프로젝트 전역에서 유틸리티 함수를 공유할 때 사용한다.
+
+```
+// 일반 함수: 특정 BP 인스턴스가 필요
+[Get Player Character] → [내 함수 호출]
+
+// 함수 라이브러리: 인스턴스 불필요, 어디서든 바로 호출
+[BFL_Utils → Calculate Damage]
+```
+
+---
+
+### 생성 방법
+
+```
+Content Browser → 우클릭 → Blueprints → Blueprint Function Library
+```
+
+- 생성된 에셋 열기 → 함수 추가 → 로직 작성
+- 함수 라이브러리의 모든 함수는 **자동으로 Static (정적)** 처리됨
+
+---
+
+### 일반 함수 vs 함수 라이브러리 함수
+
+| 항목 | 일반 BP 함수 | 함수 라이브러리 |
+|------|-------------|----------------|
+| **호출 위치** | 해당 BP 내부 또는 인스턴스 참조 필요 | 프로젝트 어디서든 호출 가능 |
+| **인스턴스 필요** | 필요 | 불필요 |
+| **Self 접근** | 가능 | 불가 (정적 함수이므로) |
+| **멤버 변수 접근** | 가능 | 불가 |
+| **적합한 용도** | 해당 클래스 전용 로직 | 범용 유틸리티, 수학 계산, 공통 처리 |
+
+---
+
+### 활용 예시
+
+```
+BFL_MathUtils
+├── ClampAngle(float) → float          // 각도 보정
+├── GetDistanceBetween(A, B) → float   // 두 액터 거리 계산
+└── IsInRange(Value, Min, Max) → bool  // 범위 체크
+
+BFL_GameUtils
+├── GetPlayerCharacter() → BP_Character  // 플레이어 캐릭터 캐스팅 래퍼
+├── FormatDamageText(float) → FText      // 데미지 텍스트 포맷
+└── PlaySoundAtLocation(Sound, Location) // 사운드 재생 헬퍼
+```
+
+---
+
+### Macro Library vs Function Library
+
+| 항목 | Macro Library | Function Library |
+|------|--------------|-----------------|
+| **Exec 핀** | 다수 가능 | 입출력 각 1개 |
+| **Timeline 사용** | 가능 | 불가 |
+| **순수 함수 지정** | 불가 | 가능 |
+| **네트워크 복제** | 불가 | 가능 |
+| **적합한 용도** | 복잡한 흐름 분기 재사용 | 계산·조회·변환 유틸리티 |
 
 ---
 
