@@ -215,31 +215,84 @@ AnimGraph State Machine
 
 ### 파일 구성
 
-**Blueprint**
+**Blueprint - 핵심**
 
 | 파일 | 역할 |
 |------|------|
 | `BP_GameMode` | 기본 게임 모드 설정 |
 | `BP_PlayerController` | 입력 처리 및 캐릭터 조작 로직 |
-| `BP_Character` | 캐릭터 (SpringArm + Camera 포함) |
+| `BP_Character` | 플레이어 캐릭터 (SpringArm + Camera 포함) |
 | `ABP_Character` | 캐릭터 애니메이션 블루프린트 |
 | `BP_Tutorial` | 튜토리얼용 블루프린트 |
+| `BP_BoxCollisionActor` | 박스 콜리전 액터 |
+| `BP_PlayMontagePayload` | 몽타주 재생 파라미터 전달용 페이로드 |
+
+**Blueprint - 데이터 구조**
+
+| 파일 | 타입 | 역할 |
+|------|------|------|
+| `E_CharacterState` | Enum | 캐릭터 상태 정의 (Idle, Attack, Dodge 등) |
+| `F_PlayMontageParameters` | Struct | 몽타주 재생에 필요한 파라미터 묶음 |
+| `DA_Character_Dodging` | Data Asset | 캐릭터 회피 동작 데이터 |
+
+**Blueprint - 라이브러리 / 인터페이스**
+
+| 파일 | 타입 | 역할 |
+|------|------|------|
+| `BFL_Functions` | Function Library | 프로젝트 전역 공통 함수 모음 |
+| `BPI_Character` | Interface | 캐릭터 공통 인터페이스 |
+
+**Blueprint - 폴더 구조**
+
+| 폴더 | 역할 |
+|------|------|
+| `Blueprints/Characters/` | 캐릭터 관련 BP |
+| `Blueprints/Skills/` | 스킬 관련 BP |
+| `Blueprints/Weapons/` | 무기 관련 BP |
+| `Blueprints/Widgets/` | UI 위젯 BP |
+| `Blueprints/Notifies/` | 애니메이션 노티파이 BP |
+| `Blueprints/Interfaces/` | 인터페이스 에셋 |
+| `Blueprints/Libraries/` | 함수/매크로 라이브러리 |
+| `Blueprints/DataAssets/` | Data Asset 에셋 |
 
 **Enhanced Input**
 
 | 파일 | 역할 |
 |------|------|
 | `IMC_Default` | Input Mapping Context (키-액션 매핑) |
-| `IA_Move` | 이동 Input Action (Axis2D) |
-| `IA_Look` | 시야 Input Action (Axis2D) |
-| `IA_Dodge` | 회피 Input Action |
+| `IA_Move` | 이동 (Axis2D) |
+| `IA_Look` | 시야 (Axis2D) |
+| `IA_Dodge` | 회피 |
+| `IA_ExecuteActionA/B` | 액션 실행 A/B |
+| `IA_SelectSkillA/B/C` | 스킬 슬롯 선택 A/B/C |
+| `IA_SelectWeaponA/B` | 무기 슬롯 선택 A/B |
 
-**메시 / 텍스처**
+**애니메이션**
+
+| 파일 | 타입 | 역할 |
+|------|------|------|
+| `BS_Unarmed` | Blend Space | 비무장 이동 블렌딩 (Idle/Walk/Run) |
+| `BS_Warrior` | Blend Space | 전사 이동 블렌딩 |
+| `Common_Jump_Start/Loop/End` | Montage | 점프 애니메이션 |
+| `Common_Backstep_Montage` | Montage | 백스텝 |
+| `Common_Tumble_Montage` | Montage | 구르기 |
+| `Common_GetHit_Montage` | Montage | 피격 |
+| `Unarmed_Run_Montage` | Montage | 비무장 달리기 |
+| `Unarmed_Walk_Montage` | Montage | 비무장 걷기 |
+| `Warrior_Attack_1~4_Montage` | Montage | 전사 4단 콤보 공격 |
+| `Warrior_Draw_Montage` | Montage | 전사 무기 뽑기 |
+| `Caster_Spell_Montage` | Montage | 캐스터 마법 시전 |
+
+**메시 / 머티리얼 / 텍스처**
 
 | 파일 | 역할 |
 |------|------|
 | `SKM_Mannequin` | 캐릭터 스켈레탈 메시 |
 | `SKM_Sword` | 검 스켈레탈 메시 |
+| `M_Body_Player` | 플레이어 바디 머티리얼 |
+| `M_Body_Enemy` | 적 바디 머티리얼 |
+| `MI_Logo_Player` | 플레이어 로고 머티리얼 인스턴스 |
+| `MI_Logo_Enemy` | 적 로고 머티리얼 인스턴스 |
 | `T_CrossHair` | HUD 크로스헤어 텍스처 |
 
 **파티클 (FX Variety Pack)**
@@ -253,6 +306,12 @@ AnimGraph State Machine
 | `CPS_Lightning` | 번개 이펙트 |
 | `CPS_LightningTrail` | 번개 궤적 이펙트 |
 | `CPS_Spark` | 스파크 이펙트 |
+
+**외부 팩**
+
+| 폴더 | 역할 |
+|------|------|
+| `SpearsAnimationPack/` | 창 전투 애니메이션 팩 |
 
 ---
 
