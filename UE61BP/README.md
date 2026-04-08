@@ -1181,4 +1181,213 @@ BFL_GameUtils
 
 ---
 
+---
+
+## 2026-04-08 - 블루프린트 구현 상세 분석 (MCP 연동)
+
+> MCP(mcp-unreal)로 에디터에 직접 접근하여 블루프린트 내부 구현을 분석한 내용
+
+---
+
+### 프로젝트 전체 구조
+
+```
+BP_Character (Characters/)
+├── BPI_Character 인터페이스 구현
+├── EventGraph        - 피격, 회피, 상태관리, 생명력
+├── SelectWeaponGraph - 무기 선택 및 교체 로직
+├── ExecuteActionGraph - 액션(공격/스킬) 실행 로직
+└── SelectSkillGraph  - 스킬 선택 로직
+
+ABP_Character (Characters/)
+├── EventGraph  - Speed, Direction 변수 업데이트
+└── AnimGraph   - State Machine + Linked Anim Layer
+
+ABP_WeaponUser (Characters/)  ← 무기 애니 레이어
+└── AnimGraph   - BlendSpace 출력 (무기별 교체)
+
+BPI_Character (Interfaces/)   ← 캐릭터 공통 계약
+└── 14개 함수 정의
+```
+
+---
+
+### BP_Character 변수 목록
+
+| 변수명 | 타입 | 역할 |
+|--------|------|------|
+| `State` | E_CharacterState (Enum) | 현재 캐릭터 상태 (Idle, Armed, Acting...) |
+| `StateMontageMap` | Map\<E_CharacterState\> | 상태별 몽타주 매핑 |
+| `WeaponClasses` | Class[] | 장착 가능한 무기 클래스 목록 |
+| `Weapons` | Object[] | 스폰된 무기 인스턴스 배열 |
+| `Weapon` | Object | 현재 장착된 무기 |
+| `AttackIndex` | int | 콤보 공격 인덱스 |
+| `bShouldBeActionTransited` | bool | 다음 액션으로 전환해야 하는지 여부 |
+| `bIsActionInputAllowed` | bool | 액션 입력 허용 여부 |
+| `Life` | float | 현재 생명력 |
+| `LifeMax` | float | 최대 생명력 |
+| `SkillClasses` | Class[] | 사용 가능한 스킬 클래스 목록 |
+| `Skills` | Object[] | 스폰된 스킬 인스턴스 배열 |
+| `Skill` | Object | 현재 선택된 스킬 |
+
+---
+
+### BPI_Character 인터페이스 함수 목록
+
+| 함수 | 반환값 | 역할 |
+|------|--------|------|
+| `IsState(State)` | bool | 현재 State가 특정 상태인지 확인 |
+| `IsArmed` | bool | 무기 장착 여부 확인 |
+| `IsSkillActivated` | bool | 스킬 활성화 여부 확인 |
+| `SelectWeapon(Index)` | - | 인덱스로 무기 선택/교체 |
+| `SelectSkill(Skill)` | - | 스킬 선택 |
+| `Dodge` | - | 회피 실행 |
+| `BeginActionA / EndActionA` | - | A 액션 시작/종료 |
+| `BeginActionB / EndActionB` | - | B 액션 시작/종료 |
+| `AllowActionInput` | - | 액션 입력 허용 |
+| `DisallowActionInput` | - | 액션 입력 차단 |
+| `EnableAction` | - | 액션 활성화 |
+| `DisableAction` | - | 액션 비활성화 |
+
+---
+
+### SelectWeaponGraph 상세 흐름
+
+무기 교체 시 **몽타주 재생 + Anim Layer 교체**까지 한 번에 처리한다.
+
+```
+Event SelectWeapon (Index)
+    ↓
+[Is State Branch] → State == Idle 이 아니면 종료
+    ↓
+[Is Skill Activated] → 스킬 사용 중이면 종료
+    ↓
+[Is Armed] → bool
+    ├── True  : 현재 Weapon 유지 (교체 흐름)
+    └── False : Weapons[Index] 사용 (신규 장착)
+    ↓
+[Find Weapon Payload] → StateMontageMap에서 몽타주/Rate/Section 조회
+    ↓
+[Play Montage] → 장착 애니메이션 재생
+    │
+    ├── OnNotifyBegin (장착 모션 절반 지점)
+    │       ↓
+    │   [Branch: IsArmed]
+    │       ├── True (무기 교체):
+    │       │   Unequip Weapon
+    │       │   → Unlink Anim Class Layers (기존 무기 AnimLayer 제거)
+    │       │   → Set Weapon = null
+    │       │   → Equip Weapon (새 무기)
+    │       │   → Link Anim Class Layers (새 무기 AnimClass 연결)
+    │       │   → Set bOrientRotationToMovement = false
+    │       └── False (신규 장착):
+    │           Equip Weapon
+    │           → Set Weapon
+    │           → Link Anim Class Layers (무기 AnimClass 연결)
+    │           → Set bOrientRotationToMovement = false
+    │
+    └── OnBlendOut
+            → Set State = Idle
+```
+
+**핵심 포인트:**
+- 무기를 장착하면 `Link Anim Class Layers`로 ABP_WeaponUser(또는 ABP_SwordUser)가 연결돼 해당 무기의 BlendSpace로 자동 전환
+- 무장 시 `bOrientRotationToMovement = false` → 캐릭터가 카메라 방향으로 고정
+- 비무장 시 `bOrientRotationToMovement = true` → 이동 방향으로 자동 회전
+
+---
+
+### ABP_Character 구조
+
+```
+EventGraph
+    Event Blueprint Update Animation (매 프레임)
+        ↓
+    Try Get Pawn Owner → Get Velocity → Speed 계산
+        ↓
+    Direction 계산 (속도 방향 vs 캐릭터 정면 각도)
+        ↓
+    BlendSpace 변수 업데이트
+
+AnimGraph
+    [Linked Anim Layer] ← ABP_WeaponUser / ABP_SwordUser 교체
+        ↓
+    [State Machine]
+        ↓
+    [Output Pose]
+```
+
+---
+
+### ABP_WeaponUser 구조
+
+무기별로 교체되는 **Anim Layer 구현체**.
+`BlendSpace` 변수 하나를 받아 그대로 출력.
+
+```
+AnimGraph
+    [Blend Space Player] ← BlendSpace 변수 (BS_Unarmed or BS_Warrior)
+        ↓
+    [Output Pose]
+```
+
+무기 장착 시 `Link Anim Class Layers`로 이 ABP가 연결되고,
+`BlendSpace` 변수에 해당 무기의 Blend Space가 지정됨.
+
+---
+
+### Anim Notify State 구현
+
+**ANS_ActionEnabled** - 몽타주 구간 동안 액션 활성화
+
+```
+Received_NotifyBegin → EnableAction (BPI_Character 호출)
+Received_NotifyEnd   → DisableAction (BPI_Character 호출)
+```
+
+**ANS_ActionInputAllowed** - 몽타주 구간 동안 입력 허용 (콤보 타이밍)
+
+```
+Received_NotifyBegin → AllowActionInput (BPI_Character 호출)
+Received_NotifyEnd   → DisallowActionInput (BPI_Character 호출)
+```
+
+→ 몽타주에서 이 두 Notify를 구간별로 배치해 콤보 가능 타이밍을 정밀 제어함.
+
+---
+
+### BP_Weapon 구조
+
+| 변수 | 역할 |
+|------|------|
+| `SocketOnEquipped` | 장착 시 붙는 소켓 이름 |
+| `SocketOnUnequipped` | 해제 시 붙는 소켓 이름 |
+| `StateMontageMap` | 상태별 몽타주/Rate/Section 매핑 |
+| `AnimClass` | 이 무기 사용 시 연결할 ABP 클래스 |
+| `Damage` | 데미지 수치 |
+| `DamagedActors` | 이미 피격된 액터 목록 (중복 피격 방지) |
+| `HitStopDuration` | 히트스톱 지속 시간 |
+
+**주요 함수:**
+- `FindWeaponPayload(State, Index)` → Montage / Rate / Section 반환
+- `BeginAttack` / `EndAttack` - 공격 판정 콜라이더 On/Off
+- `ReceiveActorBeginOverlap` - 충돌 시 데미지 처리 (DamagedActors로 중복 방지)
+
+---
+
+### BP_Skill 구조
+
+| 변수 | 역할 |
+|------|------|
+| `bIsSkillActivated` | 스킬 활성화 여부 |
+| `AnimClass` | 스킬 사용 시 연결할 ABP 클래스 |
+
+**주요 함수:**
+- `ActivateSkill` - 스킬 활성화 + AnimClass 연결
+- `DeactivateSkill` - 스킬 비활성화 + AnimClass 해제
+- `IsSkillActivated` → bool - 활성화 여부 반환
+- `GetSkillPayload` - 스킬 실행에 필요한 데이터 반환
+
+---
+
 *학습 환경: Unreal Engine | Blueprint*
